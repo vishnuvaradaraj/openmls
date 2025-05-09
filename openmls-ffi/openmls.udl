@@ -1,0 +1,69 @@
+namespace openmls {
+    // FFI error type for mapping Rust errors to exceptions
+    [Error]
+    interface FfiError {
+        /// Returns the error message
+        message() -> string;
+    };
+
+    /// Cryptographic provider for MLS operations
+    interface Provider {
+        /// Create a new provider instance
+        constructor();
+    };
+
+    /// User identity holding a credential and keypair
+    interface Identity {
+        /// Construct a new Identity with the given provider and name
+        [Throws=FfiError]
+        constructor(provider: Provider, name: string);
+        /// Generate a KeyPackage for this identity
+        key_package(provider: Provider) -> KeyPackage;
+    };
+
+    /// A serialized key package for group operations
+    interface KeyPackage {};
+    /// A serialized ratchet tree for group joins
+    interface RatchetTree {};
+
+    /// Bundle of MLS messages produced when adding a member
+    interface AddMessages {
+        proposal() -> sequence<u8>;
+        commit() -> sequence<u8>;
+        welcome() -> sequence<u8>;
+    };
+
+    /// Main MLS group handle
+    interface Group {
+        /// Create a new group with a founder identity and group ID
+        constructor(provider: Provider, founder: Identity, group_id: string);
+
+        /// Join an existing group from a welcome message and ratchet tree
+        [Name=join]
+        [Throws=FfiError]
+        constructor(provider: Provider, welcome: sequence<u8>, ratchet_tree: RatchetTree);
+
+        /// Export the current ratchet tree for out-of-band distribution
+        export_ratchet_tree() -> RatchetTree;
+
+        /// Propose and commit to adding a new member in one operation
+        [Throws=FfiError]
+        propose_and_commit_add(provider: Provider, sender: Identity, new_member: KeyPackage) -> AddMessages;
+
+        /// Merge any pending commit into the group state
+        [Throws=FfiError]
+        merge_pending_commit(provider: Provider);
+
+        /// Create a new MLS message from plaintext bytes
+        [Throws=FfiError]
+        create_message(provider: Provider, sender: Identity, msg: sequence<u8>) -> sequence<u8>;
+
+        /// Process an incoming MLS message
+        [Throws=FfiError]
+        process_message(provider: Provider, msg: sequence<u8>) -> sequence<u8>;
+
+        /// Export a secret from the group context
+        [Throws=FfiError]
+        export_key(provider: Provider, label: string, context: sequence<u8>, key_length: u64) -> sequence<u8>;
+    };
+}
